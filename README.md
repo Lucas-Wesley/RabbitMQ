@@ -49,7 +49,7 @@ docker compose exec rabbitmq rabbitmqctl delete_queue <nome-da-fila>
 | 5  | [Anatomia da mensagem e asserção de filas](https://lucaswesley.com/artigos/rabbitmq-anatomia-mensagem-e-asercao-de-filas) | [`examples/05-anatomia-mensagem`](examples/05-anatomia-mensagem) |
 | 6  | [Work Queues](https://lucaswesley.com/artigos/rabbitmq-work-queues) | [`examples/06-work-queues`](examples/06-work-queues) |
 | 7  | [Acknowledgements e durabilidade](https://lucaswesley.com/artigos/rabbitmq-ack-e-durabilidade) | [`examples/07-ack-durabilidade`](examples/07-ack-durabilidade) |
-| 8  | Exchange fanout (pub/sub) | em breve |
+| 8  | [Exchange fanout (pub/sub)](https://lucaswesley.com/artigos/rabbitmq-exchange-fanout) | [`examples/08-exchange-fanout`](examples/08-exchange-fanout) |
 | 9  | Exchange direct | em breve |
 | 10 | Exchange topic | em breve |
 | 11 | Exchange headers e default | em breve |
