@@ -1,0 +1,47 @@
+services:
+  php:
+    build: .
+    volumes:
+      - .:/var/www/html
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=admin
+      - RABBITMQ_PASS=admin
+    depends_on:
+      - rabbitmq
+    networks:
+      - app
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - .:/var/www/html
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - php
+    networks:
+      - app
+
+  rabbitmq:
+    image: rabbitmq:4.3.0-management
+    ports:
+      - "15672:15672"
+      - "5672:5672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=admin
+      - RABBITMQ_DEFAULT_PASS=admin
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - app
+
+volumes:
+  rabbitmq_data:
+    driver: local
+
+networks:
+  app:
+    driver: bridge

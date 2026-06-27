@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RabbitMQ na prática — playground</title>
+  <style>
+    :root { --bg:#0f1115; --card:#1a1d24; --line:#2a2e38; --txt:#e6e8ec; --muted:#9aa3b0; --accent:#ff6a3d; --ok:#3ddc84; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:var(--bg); color:var(--txt); font:15px/1.5 system-ui, sans-serif; }
+    header { padding:24px; border-bottom:1px solid var(--line); }
+    h1 { margin:0 0 4px; font-size:20px; }
+    header a { color:var(--accent); text-decoration:none; }
+    .wrap { max-width:980px; margin:0 auto; padding:24px; display:grid; gap:24px; grid-template-columns:1fr 1fr; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:18px; }
+    .card.full { grid-column:1 / -1; }
+    h2 { margin:0 0 14px; font-size:15px; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); }
+    label { display:block; font-size:13px; color:var(--muted); margin:10px 0 4px; }
+    input, textarea { width:100%; background:#0f1115; border:1px solid var(--line); color:var(--txt); border-radius:7px; padding:9px; font:inherit; }
+    textarea { resize:vertical; min-height:64px; }
+    .row { display:flex; gap:10px; margin-top:14px; }
+    button { background:var(--accent); color:#111; border:0; border-radius:7px; padding:10px 14px; font-weight:600; cursor:pointer; }
+    button.ghost { background:transparent; color:var(--txt); border:1px solid var(--line); }
+    .chips { display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
+    .chip { font-size:12px; padding:3px 9px; border:1px solid var(--line); border-radius:999px; cursor:pointer; color:var(--muted); }
+    pre { background:#0f1115; border:1px solid var(--line); border-radius:7px; padding:12px; overflow:auto; min-height:42px; margin:14px 0 0; white-space:pre-wrap; }
+    table { width:100%; border-collapse:collapse; }
+    th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); font-variant-numeric:tabular-nums; }
+    th { color:var(--muted); font-weight:500; font-size:13px; }
+    td.num { text-align:right; }
+    .pill { font-size:11px; padding:2px 7px; border-radius:999px; background:#222630; color:var(--muted); }
+    .muted { color:var(--muted); font-size:13px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>RabbitMQ na prática — playground</h1>
+    <div class="muted">
+      Teoria: <a href="https://lucaswesley.com/artigos" target="_blank">série no blog</a> ·
+      Management UI: <a href="http://localhost:15672" target="_blank">localhost:15672</a> (admin / admin)
+    </div>
+  </header>
+
+  <div class="wrap">
+    <div class="card">
+      <h2>Publicar</h2>
+      <label>Fila</label>
+      <input id="pubQueue" value="playground">
+      <div class="chips" id="chips"></div>
+      <label>Mensagem</label>
+      <textarea id="pubMsg">{"pedido_id": 4821, "total": 259.90}</textarea>
+      <div class="row">
+        <button onclick="publish()">Publicar</button>
+      </div>
+      <pre id="pubOut">—</pre>
+    </div>
+
+    <div class="card">
+      <h2>Consumir uma</h2>
+      <p class="muted">Puxa uma única mensagem (basic_get + ack), sem ficar de plantão. Para ver o consumo contínuo, rode um consumer pelo terminal.</p>
+      <label>Fila</label>
+      <input id="getQueue" value="playground">
+      <div class="row">
+        <button class="ghost" onclick="getOne()">Consumir uma</button>
+      </div>
+      <pre id="getOut">—</pre>
+    </div>
+
+    <div class="card full">
+      <h2>Filas (ao vivo)</h2>
+      <table>
+        <thead><tr><th>Fila</th><th class="num">Mensagens</th><th class="num">Consumidores</th><th>Durável</th></tr></thead>
+        <tbody id="queues"><tr><td colspan="4" class="muted">carregando…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const presets = ['playground', 'pedidos', 'notas_fiscais'];
+    const chips = document.getElementById('chips');
+    presets.forEach(q => {
+      const c = document.createElement('span');
+      c.className = 'chip'; c.textContent = q;
+      c.onclick = () => { document.getElementById('pubQueue').value = q; document.getElementById('getQueue').value = q; };
+      chips.appendChild(c);
+    });
+
+    async function post(url, data) {
+      const r = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
+      return r.json();
+    }
+
+    async function publish() {
+      const queue = document.getElementById('pubQueue').value;
+      const message = document.getElementById('pubMsg').value;
+      const out = document.getElementById('pubOut');
+      try {
+        const res = await post('/api/publish', { queue, message });
+        out.textContent = 'publicado em "' + res.queue + '"';
+        refresh();
+      } catch (e) { out.textContent = 'erro: ' + e; }
+    }
+
+    async function getOne() {
+      const queue = document.getElementById('getQueue').value;
+      const out = document.getElementById('getOut');
+      try {
+        const res = await post('/api/get', { queue });
+        out.textContent = res.empty ? 'fila "' + res.queue + '" vazia' : res.message;
+        refresh();
+      } catch (e) { out.textContent = 'erro: ' + e; }
+    }
+
+    async function refresh() {
+      try {
+        const r = await fetch('/api/queues');
+        const queues = await r.json();
+        const tbody = document.getElementById('queues');
+        if (!queues.length) { tbody.innerHTML = '<tr><td colspan="4" class="muted">nenhuma fila</td></tr>'; return; }
+        tbody.innerHTML = queues.map(q =>
+          '<tr><td>' + q.name + '</td><td class="num">' + q.messages + '</td><td class="num">' +
+          q.consumers + '</td><td><span class="pill">' + (q.durable ? 'sim' : 'não') + '</span></td></tr>'
+        ).join('');
+      } catch (e) { /* silencioso */ }
+    }
+
+    refresh();
+    setInterval(refresh, 2000);
+  </script>
+</body>
+</html>
